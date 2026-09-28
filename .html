@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Attendance Register · SRM Tiruchirappalli</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=Special+Elite&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#e9efe3;--ink:#14213d;--line:#b9c8b0;--red:#c1272d;--amber:#d9930d;--ok:#2e7d4f;--card:#f6f9f2}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 "IBM Plex Sans",system-ui,sans-serif}
+h1,h2,.stamp{font-family:"Special Elite","Courier New",monospace;font-weight:400}
+h1{font-size:clamp(28px,5vw,44px);margin:0}h2{font-size:22px;margin:0 0 10px}
+main{max-width:1100px;margin:auto;padding:24px 16px 90px}
+header{border-bottom:3px double var(--ink);padding-bottom:12px;margin-bottom:18px}
+header p{margin:4px 0 0;opacity:.75}
+section{background:var(--card);border:1px solid var(--line);padding:16px;margin-bottom:18px;box-shadow:4px 4px 0 var(--line)}
+.ctl{display:flex;flex-wrap:wrap;gap:14px;align-items:end}
+label{display:flex;flex-direction:column;font-size:13px;gap:3px}
+input,select,button{font:inherit;padding:6px 8px;border:1.5px solid var(--ink);background:#fff;color:var(--ink)}
+button{cursor:pointer;background:var(--ink);color:#fff}
+:focus-visible{outline:3px solid var(--amber);outline-offset:1px}
+.note{font-size:12.5px;opacity:.7;margin:8px 0 0}
+.banner{padding:14px 16px;border-left:8px solid var(--ok);background:#dff0e3}
+.banner.warn{border-color:var(--amber);background:#fbefd0}
+.banner.dead{border-color:var(--red);background:#f8dcdc}
+.stamp{display:inline-block;border:4px solid var(--red);color:var(--red);padding:2px 12px;font-size:22px;transform:rotate(-3deg);margin:6px 0;letter-spacing:1px}
+.tw{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:760px}
+th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;font-size:13.5px}
+th{border-bottom:2px solid var(--ink)}td input{width:64px}
+tr.dead td{background:#f8dcdc}tr.danger td{background:#fbefd0}
+.tag{font-weight:600}.tag.ok{color:var(--ok)}.tag.warn{color:var(--amber)}.tag.danger{color:#a35c00}.tag.dead{color:var(--red)}
+.bars{display:grid;gap:9px}.bar{display:grid;grid-template-columns:minmax(120px,240px) 1fr 52px;gap:10px;align-items:center;font-size:13px}
+.trk{position:relative;height:18px;background:#dfe7d8;border:1px solid var(--ink)}
+.trk i{position:absolute;left:0;top:0;bottom:0}.trk .ghost{background:repeating-linear-gradient(45deg,#9db09a 0 4px,#c6d3c1 4px 8px)}
+.trk b{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--red)}
+.trk em{position:absolute;top:-17px;font-size:10px;color:var(--red);font-style:normal;transform:translateX(-50%)}
+#chatBtn{position:fixed;right:18px;bottom:18px;width:60px;height:60px;border-radius:50%;font-size:26px;box-shadow:3px 3px 0 var(--red);z-index:5}
+#chat{position:fixed;right:18px;bottom:90px;width:min(370px,calc(100vw - 36px));height:min(500px,70vh);background:#fff;border:2px solid var(--ink);display:none;flex-direction:column;z-index:5;box-shadow:5px 5px 0 var(--ink)}
+#chat.open{display:flex}#msgs{flex:1;overflow:auto;padding:10px;display:flex;flex-direction:column;gap:8px}
+.m{padding:8px 10px;max-width:88%;white-space:pre-wrap;font-size:14px}.m.u{align-self:flex-end;background:var(--ink);color:#fff}.m.b{background:#e9efe3;border:1px solid var(--line)}
+#chat form{display:flex;border-top:2px solid var(--ink)}#chat input{flex:1;border:0}
+.chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 10px 8px}.chips button{font-size:12px;background:#fff;color:var(--ink);padding:3px 7px}
+</style></head><body><main>
+<header><h1>Attendance Register</h1><p>Know exactly how many classes you can skip, and how many you must attend, before the semester ends.</p></header>
+<section id="ctl"></section>
+<section id="ban"></section>
+<section><h2>Subject-wise position</h2><div class="tw" id="tbl"></div><p class="note">Held and Attended are pre-filled from your timetable up to yesterday. Edit them to match your real attendance sheet.</p></section>
+<section><h2>Attendance health</h2><div class="bars" id="bars"></div><p class="note">Solid bar: attendance now. Hatched: best possible if you attend every remaining class. Red line: 75%.</p></section>
+<section id="od"></section>
+</main>
+<button id="chatBtn" aria-label="Open Attendance Advisor">💬</button>
+<div id="chat"><div id="msgs"></div><div class="chips" id="chips"></div><form id="cf"><input id="ci" placeholder="Ask about your attendance…" autocomplete="off"><button>Ask</button></form></div>
+<script>
+const SUB={
+a:{A:'Transforms & Boundary Value Problems',B:'Biomedical Signals & Systems',C:'Electric & Electronic Circuits',D:'Digital Logic for Medical Systems',E:'Medical Physics',F:'Professional Ethics',G:'Universal Human Values-II',H:'Verbal Reasoning',I:'Social Engineering',L:'DLMS / EEC Lab'},
+b:{A:'Transforms & Boundary Value Problems',B:'Solid State Devices',C:'Computer Organization & Architecture',D:'Digital Logic Design',E:'EM Theory & Interference',F:'Professional Ethics',G:'Universal Human Values-II',H:'Verbal Reasoning',I:'Social Engineering',L:'Devices & Digital IC Lab'},
+c:{A:'Probability & Statistics',B:'Microcontrollers in Medicine',C:'Biomedical Signal Processing',D:'Biometrics',E:'Modern Wireless Communication',F:'Principles of Medical Imaging',G:'Analytical & Logical Thinking',H:'Indian Art Form',I:'Community Connect',L:'MPMC Lab',M:'Bio DSP Lab'},
+d:{A:'Discrete Mathematics',B:'Microprocessor & Microcontroller',C:'VLSI Design & Technology',D:'System & Network on Chip',E:'Machine Learning for All',F:'Community Connect',G:'Analytical & Logical Thinking',H:'Indian Art Form',P:'Project (B-Proj)',L:'VLSI / Microprocessor Lab'},
+e:{A:'Discrete Mathematics',B:'Microprocessor & Microcontroller',C:'VLSI Design & Technology',D:'Machine Learning for All',E:'Database Design & Management',F:'Community Connect',G:'Analytical & Logical Thinking',H:'Indian Art Form',P:'Project (B-Proj)',L:'VLSI / Microprocessor Lab'},
+f:{A:'Behavioural Psychology',B:'Wireless Comm & Antenna Systems',C:'Computer Comm & Network Security',D:'Semiconductor Memory Design',E:'Scripting Language for EDA',F:'Machine Learning for All',L:'CCNS Lab'}};
+// 9 chars per day = periods 1..9 (period 5 is lunch). '-' = free.
+const SECS=[
+['II BME','a',['ECII-LL--','CEBA-HH--','BDA--HG--','AEBD---LL','FACD---GG']],
+['II ECE-DS A','b',['EAII-GGLL','CAED-G-HH','ABCD--H--','BCAF-LL--','DBEC-----']],
+['II ECE-DS B','b',['--LL-DBCI','LL---CDEA','G----IEAD','GGHH-ACBE','H----FABC']],
+['III BME','c',['GGLL-EBFH','MMG--CDAB','-----CAFD','---I-ACEB','I----FADE']],
+['III ECE-A','d',['EBBA-GG--','HDBP--G--','CADF---LL','AECF-----','DAEC-LL--']],
+['III ECE-B','d',['LL---EBAD','GG---FBDC','G----PBAH','LL---ACEF','-----CAED']],
+['III ECE-DS','e',['EBCA-----','CBDF-LL--','HBAC---GG','ADEF-----','DAEP-G-LL']],
+['IV ECE-A','f',['C-AD-----','CDBF-----','BLEF-----','FAEB-----','CADE-----']],
+['IV ECE-B','f',['CAEF-----','CEFB-----','CDAB-----','DBLA-----','EDF------']]];
+const HOL=new Set(['2026-10-02','2026-10-19','2026-10-20']);
+const $=id=>document.getElementById(id);
+const ymd=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const pd=s=>{const d=new Date(s+'T00:00:00');return d};
+const TODAY=(()=>{const d=new Date();d.setHours(0,0,0,0);return d})();
+const SEM_END='2026-10-31';
+let S={si:0,start:'2026-08-03',plan:SEM_END,od1:ymd(new Date(TODAY.getTime()+864e5)),od2:ymd(new Date(TODAY.getTime()+3*864e5)),ST:{}};
+function cls(si,f,t){const o={};for(let d=new Date(f);d<=t;d.setDate(d.getDate()+1)){const w=d.getDay();if(w<1||w>5||HOL.has(ymd(d)))continue;for(const c of SECS[si][2][w-1])if(c!='-')o[c]=(o[c]||0)+1}return o}
+function st(){const k=S.si+S.start;if(!S.ST[k]){const y=new Date(TODAY);y.setDate(y.getDate()-1);const h=cls(S.si,pd(S.start),y);S.ST[k]={H:{...h},A:{...h}}}return S.ST[k]}
+function row(k,name,H,A,R,thr){thr=thr||75;const T=H+R,pct=H?A/H*100:100,mx=T?(A+R)/T*100:100,n=v=>Math.max(0,Math.ceil(v*T/100-A-1e-9));
+const n75=n(thr),n90=n(90);let s='ok';if(mx<thr)s='dead';else if(pct<thr)s='danger';else if(R-n75<=2)s='warn';
+return{k,name,H,A,R,T,pct,mx,n75,n90,skip:R-n75,skip90:R-n90,s}}
+function calc(end,thr){const S0=st(),R=cls(S.si,TODAY,end),ks=Object.keys(SUB[SECS[S.si][1]]).filter(k=>(S0.H[k]||0)+(R[k]||0)>0);
+const rows=ks.map(k=>row(k,SUB[SECS[S.si][1]][k],S0.H[k]||0,S0.A[k]||0,R[k]||0,thr));
+const sum=f=>rows.reduce((a,r)=>a+r[f],0);return{rows,all:row('*','Overall',sum('H'),sum('A'),sum('R'),thr)}}
+const stTxt={ok:'Safe',warn:'Close to the line',danger:'Below 75%, recoverable',dead:'Irreversible Detention'};
+function render(){const id=document.activeElement&&document.activeElement.id;
+const [sn]=SECS[S.si],c=calc(pd(S.plan)),ce=calc(pd(SEM_END)),dead=ce.rows.filter(r=>r.s=='dead'),o=c.all;
+$('ctl').innerHTML=`<div class="ctl"><label>Your class section<select id="sec">${SECS.map((s,i)=>`<option value="${i}" ${i==S.si?'selected':''}>${s[0]}</option>`).join('')}</select></label>
+<label>Semester start<input type="date" id="st" value="${S.start}"></label>
+<label>Plan up to (future date)<input type="date" id="pl" value="${S.plan}" min="${ymd(TODAY)}"></label>
+<div><b>Today:</b> ${TODAY.toDateString()}</div></div><p class="note">Holidays assumed: 2 Oct, 19–20 Oct (edit HOL in the code). Semester ends ${SEM_END}. Classes before today are counted as held.</p>`;
+const bs=dead.length?'dead':(c.rows.some(r=>r.s=='danger'||r.s=='warn')?'warn':'');
+$('ban').innerHTML=`<div class="banner ${bs}"><h2>${sn}: ${o.R} classes left until ${S.plan}</h2>
+${dead.length?`<div class="stamp">IRREVERSIBLE DETENTION</div><p><b>Even if you attend every remaining class, you cannot reach 75% before November in:</b> ${dead.map(r=>r.name+' (max '+r.mx.toFixed(1)+'%)').join(', ')}. Meet your faculty and HOD about condonation now.</p>`:''}
+<p>Overall now <b>${o.pct.toFixed(1)}%</b>. To stay at 75% you must attend <b>${o.n75}</b> of the ${o.R} remaining classes${o.n75>o.R?' (impossible)':`, so you can skip at most <b>${Math.max(0,o.skip)}</b>`}. ${o.pct>=90?`To hold 90% you can skip ${Math.max(0,o.skip90)}.`:o.n90>o.R?`90% is out of reach (best ${o.mx.toFixed(1)}%).`:`To reach 90% attend <b>${o.n90}</b> of ${o.R}.`}</p></div>`;
+$('tbl').innerHTML=`<table><tr><th>Subject</th><th>Held</th><th>Attended</th><th>Now</th><th>Left</th><th>Must attend (75%)</th><th>Can skip</th><th>90% goal</th><th>Status</th></tr>${c.rows.concat([c.all]).map(r=>`<tr class="${r.s}"><td>${r.k=='*'?'<b>Overall</b>':r.name}</td>
+${r.k=='*'?`<td>${r.H}</td><td>${r.A}</td>`:`<td><input type="number" min="0" id="h${r.k}" data-k="${r.k}" data-t="H" value="${r.H}"></td><td><input type="number" min="0" id="a${r.k}" data-k="${r.k}" data-t="A" value="${r.A}"></td>`}
+<td>${r.pct.toFixed(1)}%</td><td>${r.R}</td><td>${r.n75>r.R?'—':r.n75}</td><td>${r.skip<0?0:r.skip}</td><td>${r.pct>=90?'skip '+Math.max(0,r.skip90):r.n90>r.R?'max '+r.mx.toFixed(1)+'%':'attend '+r.n90}</td><td class="tag ${r.s}">${stTxt[r.s]}</td></tr>`).join('')}</table>`;
+$('bars').innerHTML=c.rows.concat([c.all]).map(r=>`<div class="bar"><span>${r.k=='*'?'<b>Overall</b>':r.name}</span><div class="trk"><i class="ghost" style="width:${Math.min(100,r.mx)}%"></i><i style="width:${Math.min(100,r.pct)}%;background:${{ok:'#2e7d4f',warn:'#d9930d',danger:'#e07b00',dead:'#c1272d'}[r.s]}"></i><b style="left:75%"></b>${r.k=='*'?'<em style="left:75%">75%</em>':''}</div><span>${r.pct.toFixed(0)}%</span></div>`).join('');
+odRender(c);
+if(id){const e=$(id);if(e)e.focus()}}
+function odRender(c){const a=pd(S.od1),b=pd(S.od2),m=cls(S.si,a<TODAY?TODAY:a,b);
+const rs=c.rows.concat([c.all]).map(r=>{const x=r.k=='*'?Object.values(m).reduce((p,q)=>p+q,0):(m[r.k]||0),ab=(r.A+r.R-x)/r.T*100,od=(r.A+r.R-x)/Math.max(1,r.T-x)*100;return{r,x,ab,od}});
+$('od').innerHTML=`<h2>OD / Medical leave simulator</h2><div class="ctl"><label>Leave from<input type="date" id="o1" value="${S.od1}"></label><label>Leave to<input type="date" id="o2" value="${S.od2}"></label></div>
+<p class="note">Assumes you attend every other remaining class up to ${S.plan}. "As absent" counts leave classes against you; "As OD" removes them from the total, as an approved On-Duty or medical leave does.</p>
+<div class="tw"><table><tr><th>Subject</th><th>Classes in leave</th><th>Final % as absent</th><th>Final % as OD / medical</th></tr>${rs.map(({r,x,ab,od})=>`<tr><td>${r.k=='*'?'<b>Overall</b>':r.name}</td><td>${x}</td><td class="tag ${ab<75?'dead':'ok'}">${ab.toFixed(1)}%</td><td class="tag ${od<75?'dead':'ok'}">${od.toFixed(1)}%</td></tr>`).join('')}</table></div>`}
+document.addEventListener('change',e=>{const t=e.target;
+if(t.id=='sec')S.si=+t.value;else if(t.id=='st')S.start=t.value;else if(t.id=='pl')S.plan=t.value>SEM_END?SEM_END:t.value;else if(t.id=='o1')S.od1=t.value;else if(t.id=='o2')S.od2=t.value;
+else if(t.dataset.k)st()[t.dataset.t][t.dataset.k]=Math.max(0,+t.value||0);else return;render()});
+// ---- Advisor chatbot ----
+const MON=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'],WD=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+function ask(q){q=q.toLowerCase();const thr=+(q.match(/(\d+)\s*%/)||[])[1]||75,W={one:1,two:2,three:3,four:4,five:5,six:6,seven:7,a:1};
+let n=1,m=q.match(/(\d+)[- ]?day/)||q.match(/\b(one|two|three|four|five|six|seven|a)[- ]day/);if(m)n=+m[1]||W[m[1]];
+let s=new Date(TODAY);const dm=q.match(new RegExp('(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:of\\s*)?('+MON.join('|')+')'));
+if(/tomorrow/.test(q))s.setDate(s.getDate()+1);else if(dm)s=new Date(2026,MON.indexOf(dm[2]),+dm[1]);else{const i=WD.findIndex(w=>q.includes(w));if(i>=0){do s.setDate(s.getDate()+1);while(s.getDay()!=i)}}
+const e=new Date(s);e.setDate(e.getDate()+n-1);const plan=pd(SEM_END),c=calc(plan,thr),ks=SUB[SECS[S.si][1]];
+if(/leave|sick|absent|miss|bunk|skip|holiday|fever|off/.test(q)&&!/how many/.test(q)||m||dm){
+let key=null,best=0;for(const k in ks){const sc=ks[k].toLowerCase().split(/[^a-z]+/).filter(w=>w.length>3&&q.includes(w)).length;if(sc>best){best=sc;key=k}}
+const r=key?c.rows.find(x=>x.k==key):c.all,x=key?(cls(S.si,s,e)[key]||0):Object.values(cls(S.si,s,e)).reduce((p,q)=>p+q,0);
+const up=key?(cls(S.si,TODAY,e)[key]||0):Object.values(cls(S.si,TODAY,e)).reduce((p,q)=>p+q,0);
+const after=r.H+up?r.A/(r.H+up)*100:100,fin=(r.A+r.R-x)/r.T*100,W2=`${key?r.name:'overall attendance'}`;
+return `Leave: ${s.toDateString()} to ${e.toDateString()}. You would miss ${x} ${key?r.name:''} class(es).\nNow: ${r.pct.toFixed(1)}%\nRight after the leave: ${after.toFixed(1)}%\nEnd of semester (attending all else): ${fin.toFixed(1)}%\n`+(fin<thr?`⚠ Yes, ${W2} ends below ${thr}%. ${(r.A+r.R-x)<Math.ceil(thr*r.T/100)?'You cannot recover this: Irreversible Detention risk. Ask for an OD/medical certificate approval.':'You can still recover if you attend every remaining class.'}`:`✅ No, ${W2} stays above ${thr}%. You could still skip ${Math.max(0,Math.floor(fin*r.T/100-thr*r.T/100))} more class(es) after this leave.`)+(after<thr&&fin>=thr?`\nNote: it dips to ${after.toFixed(1)}% right after the leave before recovering.`:'')}
+const o=c.all;return `${SECS[S.si][0]} summary until ${SEM_END}:\nOverall ${o.pct.toFixed(1)}% with ${o.R} classes left.\nMust attend ${o.n75} to stay at ${thr}%; you can skip ${Math.max(0,o.skip)}.\n`+(c.rows.filter(r=>r.s!='ok').map(r=>`• ${r.name}: ${stTxt[r.s]} (${r.pct.toFixed(0)}%)`).join('\n')||'All subjects are safe.')+`\nTry: "If I take a 3-day sick leave starting tomorrow, will ${ks.A} drop below 75%?"`}
+function say(t,c){const d=document.createElement('div');d.className='m '+c;d.textContent=t;$('msgs').append(d);$('msgs').scrollTop=1e9}
+$('chatBtn').onclick=()=>{$('chat').classList.toggle('open');if(!$('msgs').children.length){say('Hi! I read your dashboard numbers. Ask me things like a leave scenario or "how many classes can I skip?"','b');$('chips').innerHTML='';[`If I take a 3-day sick leave starting tomorrow, will ${SUB[SECS[S.si][1]].A} drop below 75%?`,'How many classes can I skip?'].forEach(t=>{const b=document.createElement('button');b.type='button';b.textContent=t.length>34?t.slice(0,32)+'…':t;b.onclick=()=>{say(t,'u');say(ask(t),'b')};$('chips').append(b)})}};
+$('cf').onsubmit=e=>{e.preventDefault();const t=$('ci').value.trim();if(!t)return;say(t,'u');say(ask(t),'b');$('ci').value=''};
+render();
+</script></body></html>
